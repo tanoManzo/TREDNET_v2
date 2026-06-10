@@ -3,7 +3,7 @@ name = "trednet-summer-2026"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.11,<3.13"
 dependencies = [
     "biopython>=1.87",
     "h5py>=3.14.0",
@@ -12,5 +12,5 @@ dependencies = [
     "pybedtools>=0.12.0",
     "scikit-learn>=1.9.0",
     "scipy>=1.17.1",
-    "tensorflow[and-cuda]>=2.21.0",
+    "tensorflow[and-cuda]>=2.20,<2.21",
 ]

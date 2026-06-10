@@ -68,7 +68,15 @@ def get_chrom2seq(capitalize=True):
 
     chrom2seq = {}
     for seq in SeqIO.parse(FASTA_FILE, "fasta"):
-        chrom2seq[seq.description.split()[0]] = seq.seq.upper() if capitalize else seq.seq
+        chrom_name = seq.description.split()[0]
+        seq_value = seq.seq.upper() if capitalize else seq.seq
+        chrom2seq[chrom_name] = seq_value
+
+        # Make lookup robust to chr-prefix differences between FASTA and BED files.
+        if chrom_name.startswith("chr"):
+            chrom2seq[chrom_name[3:]] = seq_value
+        else:
+            chrom2seq["chr" + chrom_name] = seq_value
 
     return chrom2seq
 
@@ -186,10 +194,14 @@ def create_dataset_for_phase_two(positive_bed_file, negative_bed_file, dataset_s
     pos_val_data = []
     pos_test_data = []
 
+    missing_positive_chrom = 0
     for bed_list, data_list in zip([pos_train_bed, pos_val_bed, pos_test_bed],
                                    [pos_train_data, pos_val_data, pos_test_data]):
 
         for r in bed_list:
+            if r.chrom not in chrom2seq:
+                missing_positive_chrom += 1
+                continue
             _seq = chrom2seq[r.chrom][r.start:r.stop]
             if not len(_seq) == 2001:
                 continue
@@ -199,6 +211,8 @@ def create_dataset_for_phase_two(positive_bed_file, negative_bed_file, dataset_s
     print (len(pos_train_data))
     print (len(pos_val_data))
     print (len(pos_test_data))
+    if missing_positive_chrom > 0:
+        print(f"WARNING: skipped {missing_positive_chrom} positive regions due to missing chromosomes in FASTA")
     
     print ("Generating the negative dataset")
 
@@ -210,9 +224,13 @@ def create_dataset_for_phase_two(positive_bed_file, negative_bed_file, dataset_s
     neg_val_data = []
     neg_test_data = []
     
+    missing_negative_chrom = 0
     for bed_list, data_list in zip([neg_train_bed, neg_val_bed, neg_test_bed],
                                    [neg_train_data, neg_val_data, neg_test_data]):
         for r in bed_list:
+            if r.chrom not in chrom2seq:
+                missing_negative_chrom += 1
+                continue
             _seq = chrom2seq[r.chrom][r.start:r.stop]
             if not len(_seq) == 2001:
                 continue
@@ -222,6 +240,8 @@ def create_dataset_for_phase_two(positive_bed_file, negative_bed_file, dataset_s
     print (len(neg_train_data))
     print (len(neg_val_data))
     print (len(neg_test_data))
+    if missing_negative_chrom > 0:
+        print(f"WARNING: skipped {missing_negative_chrom} negative regions due to missing chromosomes in FASTA")
 
     print ("Merging positive and negative to single matrices")
 
