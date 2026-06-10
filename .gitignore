@@ -1,0 +1,33 @@
+# Python cache and bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Build and packaging artifacts
+build/
+dist/
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Large files
+fasta/
+model_phase_I/
+model_phase_II/
+
+# Project generated outputs
+models_output/
+
+# Local recovery artifacts
+.git_broken_*/
