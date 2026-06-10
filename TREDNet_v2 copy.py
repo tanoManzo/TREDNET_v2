@@ -85,74 +85,21 @@ def seq2one_hot(seq):
 
 
 ###############################################################################################################################################
-def _build_phase_one_model():
-    """Reconstruct the phase-one Sequential CNN in native Keras 3."""
-    max_norm = keras.constraints.MaxNorm(max_value=0.9, axis=0)
-    glorot_uniform = keras.initializers.GlorotUniform()
-    model = keras.Sequential([
-        keras.layers.Conv1D(320, 8, activation="relu", padding="valid",
-                            kernel_constraint=max_norm, kernel_initializer=glorot_uniform,
-                            input_shape=(INPUT_LENGTH, 4), name="conv1d_1"),
-        keras.layers.Conv1D(320, 8, activation="relu", padding="valid",
-                            kernel_constraint=max_norm, kernel_initializer=glorot_uniform,
-                            name="conv1d_2"),
-        keras.layers.Dropout(0.2, name="dropout_1"),
-        keras.layers.MaxPooling1D(pool_size=6, name="max_pooling1d_1"),
-        keras.layers.Conv1D(480, 8, activation="relu", padding="valid",
-                            kernel_constraint=max_norm, kernel_initializer=glorot_uniform,
-                            name="conv1d_3"),
-        keras.layers.Conv1D(480, 8, activation="relu", padding="valid",
-                            kernel_constraint=max_norm, kernel_initializer=glorot_uniform,
-                            name="conv1d_4"),
-        keras.layers.Dropout(0.2, name="dropout_2"),
-        keras.layers.MaxPooling1D(pool_size=6, name="max_pooling1d_2"),
-        keras.layers.Conv1D(640, 8, activation="relu", padding="valid",
-                            kernel_constraint=max_norm, kernel_initializer=glorot_uniform,
-                            name="conv1d_5"),
-        keras.layers.Conv1D(640, 8, activation="relu", padding="valid",
-                            kernel_constraint=max_norm, kernel_initializer=glorot_uniform,
-                            name="conv1d_6"),
-        keras.layers.Dropout(0.5, name="dropout_3"),
-        keras.layers.Flatten(name="flatten_1"),
-        keras.layers.Dense(4560, activation="relu", name="dense_1"),
-        keras.layers.Dense(4560, activation="linear", name="dense_2"),
-        keras.layers.Activation("sigmoid", name="activation_1"),
-    ])
-    return model
-
-
-def _build_phase_two_model():
-    """Reconstruct the phase-two Sequential CNN in native Keras 3."""
-    model = keras.Sequential([
-        keras.layers.Conv1D(64, 4, activation="relu", padding="valid",
-                            input_shape=(4560, 1), name="conv1d_1"),
-        keras.layers.BatchNormalization(name="batch_normalization_1"),
-        keras.layers.MaxPooling1D(pool_size=2, name="max_pooling1d_1"),
-        keras.layers.Dropout(0.4, name="dropout_1"),
-        keras.layers.Conv1D(128, 2, activation="relu", padding="valid", name="conv1d_2"),
-        keras.layers.Dropout(0.4, name="dropout_2"),
-        keras.layers.Flatten(name="flatten_1"),
-        keras.layers.Dense(100, activation="relu", name="dense_1"),
-        keras.layers.Dense(50, activation="relu", name="dense_2"),
-        keras.layers.Dense(1, activation="sigmoid", name="dense_3"),
-    ])
-    return model
-
-
 def get_phase_one_model():
 
     print("running get phase 1 model")
-    json_file = os.path.join(MODEL_DIR, "model.json")
+    phase_one_model_file = _resolve_existing_file(
+        os.path.join(MODEL_DIR, "phase_one_model"),
+        [".keras", ".h5", ".hdf5"],
+    )
     phase_one_weights_file = _resolve_existing_file(
         os.path.join(MODEL_DIR, "phase_one_weights"),
         [".weights.h5", ".h5", ".hdf5"],
     )
 
-    model = _build_phase_one_model()
+    model = load_model(phase_one_model_file)
     if os.path.exists(phase_one_weights_file):
         model.load_weights(phase_one_weights_file)
-    else:
-        print(f"WARNING: weights file not found at {phase_one_weights_file}, model will use random weights")
 
     return model
 
@@ -276,7 +223,11 @@ def train_model():
     import sys
 
     data_file = os.path.join(SAVE_DIR, f"{EID}_phase_two_dataset.hdf5")
-    model = _build_phase_two_model()
+    phase_two_model_file = _resolve_existing_file(
+        os.path.join(MODEL_DIR_phase_II, "phase_two_model"),
+        [".keras", ".h5", ".hdf5"],
+    )
+    model = load_model(phase_two_model_file)
     print("Loading the dataset from:", data_file)
     data = load_dataset(data_file)
     print("Launching the training of model")
