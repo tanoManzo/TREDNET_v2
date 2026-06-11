@@ -35,7 +35,7 @@ MODEL_DIR_phase_II = "./model_phase_II"
 FASTA_FILE = "./fasta/hg38.fa"
 
 #source_input="sourceinput/EID"
-EID = "HNF4A_sample"
+EID = "K562_Enhancer_DHS_x2"
 
 source_input= f"./input_training_data/"
 
