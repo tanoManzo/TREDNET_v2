@@ -40,10 +40,9 @@ MODEL_DIR = "./model_phase_I"
 MODEL_DIR_phase_II = "./model_phase_II"
 FASTA_FILE = "./fasta/hg38.fa"
 
-#source_input="sourceinput/EID"
-EID = "K562_Enhancer_DHS_x2"
-
-source_input= f"./input_training_data/"
+# Configurable experiment ID and input directory (set via environment variables)
+EID = os.getenv("TREDNET_EID", "K562_Enhancer_DHS_x2")
+source_input = os.getenv("TREDNET_INPUT_DIR", "./input_training_data/")
 
 SAVE_DIR = f"./models_output/{EID}"
 

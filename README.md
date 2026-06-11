@@ -106,10 +106,19 @@ uv run --python 3.13 TREDNet_v2.py
 **Before running:**
 - Runtime → Change runtime type → **GPU** (Tesla T4 or A100)
 
-**Environment variables** (tunable for different GPU memory):
+**Environment variables** (tunable for different GPU memory and experiments):
+- `TREDNET_EID`: Experiment ID / dataset name (default: `K562_Enhancer_DHS_x2`)
+- `TREDNET_INPUT_DIR`: Input data directory path (default: `./input_training_data/`)
 - `TREDNET_BATCH_SIZE`: Training batch size (default 8; reduce to 4 for limited memory)
 - `TREDNET_PRED_BATCH_SIZE`: Prediction batch size (default 8; controls chunked inference)
 - `TREDNET_EPOCHS`: Number of training epochs (default 3; increase for production)
+
+**Example:** Run with custom experiment ID:
+```bash
+export TREDNET_EID="HNF4A_sample"
+export TREDNET_EPOCHS=5
+uv run --python 3.13 TREDNet_v2.py
+```
 
 ## Troubleshooting
 
