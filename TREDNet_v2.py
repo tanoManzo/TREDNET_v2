@@ -9,6 +9,10 @@ from Bio import SeqIO
 from pybedtools import BedTool
 from sklearn import metrics
 import h5py
+
+# Disable XLA to prevent large intermediate allocations in Colab
+os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices=false'
+
 import tensorflow as tf
 import keras
 import datetime
@@ -166,7 +170,17 @@ def get_phase_one_model():
 
     return model
 
-###############################################################################################################################################
+
+def predict_in_chunks(model, data, chunk_size=8):
+    """Predict on data in small chunks to avoid OOM on limited GPUs."""
+    all_predictions = []
+    for i in range(0, len(data), chunk_size):
+        chunk = data[i:i+chunk_size]
+        pred = model.predict(chunk, verbose=0)
+        all_predictions.append(pred)
+        del chunk, pred
+        gc.collect()
+    return np.vstack(all_predictions)
 def create_dataset_for_phase_two(positive_bed_file, negative_bed_file, dataset_save_file):
 
     print("running create_dataset_forphase2")
@@ -274,9 +288,9 @@ def create_dataset_for_phase_two(positive_bed_file, negative_bed_file, dataset_s
     val_data = np.vstack((pos_val_data_matrix, neg_val_data_matrix))
     val_labels = np.concatenate((np.ones(len(pos_val_data), dtype=np.float32), np.zeros(len(neg_val_data), dtype=np.float32)))
 
-    test_data = model.predict(test_data, batch_size=PRED_BATCH_SIZE)
-    train_data = model.predict(train_data, batch_size=PRED_BATCH_SIZE)
-    val_data = model.predict(val_data, batch_size=PRED_BATCH_SIZE)
+    test_data = predict_in_chunks(model, test_data, chunk_size=PRED_BATCH_SIZE)
+    train_data = predict_in_chunks(model, train_data, chunk_size=PRED_BATCH_SIZE)
+    val_data = predict_in_chunks(model, val_data, chunk_size=PRED_BATCH_SIZE)
 
     # Free large intermediate arrays early to reduce Colab memory pressure.
     del pos_train_data_matrix, pos_val_data_matrix, pos_test_data_matrix
