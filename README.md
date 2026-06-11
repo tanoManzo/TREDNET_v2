@@ -60,7 +60,7 @@ Under `models_output/<EID>/` (default `<EID>` in code is `K562_Enhancer_DHS_x2`)
 
 ## Run in Google Colab
 
-Use this single Colab cell when assets are hosted in Google Drive:
+Copy this cell into a Colab notebook with GPU runtime enabled:
 
 ```bash
 %%bash
@@ -85,26 +85,54 @@ ln -s /content/TREDNet_assets/model_phase_II model_phase_II
 # Fresh environment
 rm -rf .venv .python-version
 
-# Ensure uv uses public PyPI (fixes custom index DNS failures)
+# Ensure uv uses public PyPI
 export UV_INDEX_URL="https://pypi.org/simple"
 unset UV_EXTRA_INDEX_URL PIP_INDEX_URL PIP_EXTRA_INDEX_URL 2>/dev/null || true
 
-# Python 3.13 path (change to 3.11 if desired)
 uv python pin 3.13
 uv venv --python 3.13 --clear
 uv sync --python 3.13
 
-uv run --python 3.13 python -V
+# Memory optimization for standard Colab GPU (14GB T4)
+export TF_FORCE_GPU_ALLOW_GROWTH=true
+export TF_CPP_MIN_LOG_LEVEL=2
+export TREDNET_BATCH_SIZE=8
+export TREDNET_PRED_BATCH_SIZE=8
+export TREDNET_EPOCHS=3
+
 uv run --python 3.13 TREDNet_v2.py
 ```
 
+**Before running:**
+- Runtime → Change runtime type → **GPU** (Tesla T4 or A100)
+
+**Environment variables** (tunable for different GPU memory):
+- `TREDNET_BATCH_SIZE`: Training batch size (default 8; reduce to 4 for limited memory)
+- `TREDNET_PRED_BATCH_SIZE`: Prediction batch size (default 8; controls chunked inference)
+- `TREDNET_EPOCHS`: Number of training epochs (default 3; increase for production)
+
 ## Troubleshooting
+
+### Colab GPU Memory Issues
+
+If you see warnings about GPU memory allocation or out-of-memory errors (exit code 137):
+
+1. Ensure you have **GPU** runtime enabled (not TPU)
+2. Reduce batch sizes further:
+   ```bash
+   export TREDNET_BATCH_SIZE=4
+   export TREDNET_PRED_BATCH_SIZE=4
+   export TREDNET_EPOCHS=1
+   ```
+3. If available, switch to **High-RAM** runtime for better stability
+
+The pipeline is optimized for standard Colab T4 GPU (14GB) with XLA compilation disabled and chunked predictions enabled to reduce memory pressure.
 
 ### `Failed to download ml-dtypes` with Artifactory/NCBI URL in Colab
 
 Cause: Colab session is using a custom package index that is unreachable from your runtime.
 
-Fix: force `uv` to use official PyPI before `uv sync`:
+Fix: The Colab cell already includes this fix:
 
 ```bash
 export UV_INDEX_URL="https://pypi.org/simple"
@@ -118,14 +146,16 @@ In Colab, enable GPU runtime first. Then verify:
 ```python
 import tensorflow as tf
 print(tf.__version__)
-print(tf.config.list_physical_devices("GPU"))
+print(len(tf.config.list_physical_devices("GPU")))
 ```
 
 ### Missing chromosome warnings
 
 If you see warnings such as skipped positive/negative regions due to missing chromosomes in FASTA, the pipeline will continue. This indicates BED chromosome names/regions do not fully match available FASTA entries.
 
-## Notes
+## Implementation Notes
 
-- Current implementation runs with fixed constants from `TREDNet_v2.py` (for example, `EID`, epochs, batch size).
-- To run a different experiment ID, update `EID` in `TREDNet_v2.py` and ensure matching BED files exist in `input_training_data/`.
+- **Memory optimization:** XLA compilation is disabled and predictions are chunked to fit standard Colab GPU memory constraints
+- **Keras 3:** Uses standalone `keras` imports (not `tensorflow.keras`) for better compatibility
+- **Python 3.13:** Fully supported on both local and Colab environments
+- **Configurable parameters:** Batch size, prediction chunk size, and epochs are configurable via environment variables
