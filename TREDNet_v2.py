@@ -4,6 +4,7 @@ import numpy as np
 import random
 import time
 import glob
+import gc
 from Bio import SeqIO
 from pybedtools import BedTool
 from sklearn import metrics
@@ -23,8 +24,9 @@ validation_chromosomes = ["chr7"]
 test_chromosomes = ["chr8", "chr9"]
 
 INPUT_LENGTH = 2001
-EPOCH = 5		
-BATCH_SIZE = 64
+EPOCH = int(os.getenv("TREDNET_EPOCHS", "5"))
+BATCH_SIZE = int(os.getenv("TREDNET_BATCH_SIZE", "64"))
+PRED_BATCH_SIZE = int(os.getenv("TREDNET_PRED_BATCH_SIZE", "32"))
 GPUS = 1
 
 
@@ -86,7 +88,7 @@ def seq2one_hot(seq):
     seq = seq.upper()
     char_to_idx = {ch: i for i, ch in enumerate(alphabet)}
     idx = np.array([char_to_idx.get(ch, -1) for ch in seq])
-    one_hot = np.zeros((len(seq), 4), dtype=int)
+    one_hot = np.zeros((len(seq), 4), dtype=np.float32)
     valid = idx >= 0
     one_hot[np.arange(len(seq))[valid], idx[valid]] = 1
     return one_hot
@@ -245,36 +247,43 @@ def create_dataset_for_phase_two(positive_bed_file, negative_bed_file, dataset_s
 
     print ("Merging positive and negative to single matrices")
 
-    pos_train_data_matrix = np.zeros((len(pos_train_data), INPUT_LENGTH, 4))
+    pos_train_data_matrix = np.zeros((len(pos_train_data), INPUT_LENGTH, 4), dtype=np.float32)
     for i in range(len(pos_train_data)):
         pos_train_data_matrix[i, :, :] = pos_train_data[i]
-    pos_val_data_matrix = np.zeros((len(pos_val_data), INPUT_LENGTH, 4))
+    pos_val_data_matrix = np.zeros((len(pos_val_data), INPUT_LENGTH, 4), dtype=np.float32)
     for i in range(len(pos_val_data)):
         pos_val_data_matrix[i, :, :] = pos_val_data[i]
-    pos_test_data_matrix = np.zeros((len(pos_test_data), INPUT_LENGTH, 4))
+    pos_test_data_matrix = np.zeros((len(pos_test_data), INPUT_LENGTH, 4), dtype=np.float32)
     for i in range(len(pos_test_data)):
         pos_test_data_matrix[i, :, :] = pos_test_data[i]
 
-    neg_train_data_matrix = np.zeros((len(neg_train_data), INPUT_LENGTH, 4))
+    neg_train_data_matrix = np.zeros((len(neg_train_data), INPUT_LENGTH, 4), dtype=np.float32)
     for i in range(len(neg_train_data)):
         neg_train_data_matrix[i, :, :] = neg_train_data[i]
-    neg_val_data_matrix = np.zeros((len(neg_val_data), INPUT_LENGTH, 4))
+    neg_val_data_matrix = np.zeros((len(neg_val_data), INPUT_LENGTH, 4), dtype=np.float32)
     for i in range(len(neg_val_data)):
         neg_val_data_matrix[i, :, :] = neg_val_data[i]
-    neg_test_data_matrix = np.zeros((len(neg_test_data), INPUT_LENGTH, 4))
+    neg_test_data_matrix = np.zeros((len(neg_test_data), INPUT_LENGTH, 4), dtype=np.float32)
     for i in range(len(neg_test_data)):
         neg_test_data_matrix[i, :, :] = neg_test_data[i]
 
     test_data = np.vstack((pos_test_data_matrix, neg_test_data_matrix))
-    test_labels = np.concatenate((np.ones(len(pos_test_data)), np.zeros(len(neg_test_data))))
+    test_labels = np.concatenate((np.ones(len(pos_test_data), dtype=np.float32), np.zeros(len(neg_test_data), dtype=np.float32)))
     train_data = np.vstack((pos_train_data_matrix, neg_train_data_matrix))
-    train_labels = np.concatenate((np.ones(len(pos_train_data)), np.zeros(len(neg_train_data))))
+    train_labels = np.concatenate((np.ones(len(pos_train_data), dtype=np.float32), np.zeros(len(neg_train_data), dtype=np.float32)))
     val_data = np.vstack((pos_val_data_matrix, neg_val_data_matrix))
-    val_labels = np.concatenate((np.ones(len(pos_val_data)), np.zeros(len(neg_val_data))))
+    val_labels = np.concatenate((np.ones(len(pos_val_data), dtype=np.float32), np.zeros(len(neg_val_data), dtype=np.float32)))
 
-    test_data = model.predict(test_data)
-    train_data = model.predict(train_data)
-    val_data = model.predict(val_data)
+    test_data = model.predict(test_data, batch_size=PRED_BATCH_SIZE)
+    train_data = model.predict(train_data, batch_size=PRED_BATCH_SIZE)
+    val_data = model.predict(val_data, batch_size=PRED_BATCH_SIZE)
+
+    # Free large intermediate arrays early to reduce Colab memory pressure.
+    del pos_train_data_matrix, pos_val_data_matrix, pos_test_data_matrix
+    del neg_train_data_matrix, neg_val_data_matrix, neg_test_data_matrix
+    del pos_train_data, pos_val_data, pos_test_data
+    del neg_train_data, neg_val_data, neg_test_data
+    gc.collect()
 
 
     print ("Saving to file:", dataset_save_file)
